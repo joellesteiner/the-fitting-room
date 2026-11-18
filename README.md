@@ -14,12 +14,25 @@ The recommender has three layers, kept separate on purpose:
 
 No height, weight or body measurements are collected.
 
+## Results
+
+Backtested on 2,213 ModCloth shoppers the model never saw (five fold cross validation by shopper):
+
+* Stated confidence is on average within 3 points of the real hit rate, down from 13 points with the 001 hand set model.
+* Abstaining below 50% confidence still serves 78% of shoppers and lifts exact size accuracy from 51% to 54%.
+* Learning showed that a fit report on another brand's garment is weak evidence, which shapes what the pilot must collect.
+
+Full analysis: [research/backtest/backtest.ipynb](research/backtest/backtest.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/joellesteiner/the-fitting-room/blob/main/research/backtest/backtest.ipynb)
+
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `app/` | Web prototype: Python server, recommendation engine, front end and unit tests |
-| `research/modcloth/` | Fit classifier experiment on the ModCloth dataset |
+| `app/` | Web prototype: Python server, recommendation engine, learned model file, front end and unit tests |
+| `research/backtest/` | Learned model and backtest: code, tests, notebook, results and charts |
+| `research/modcloth/` | 001 fit classifier experiment on the ModCloth dataset |
+| `docs/adr/` | Architecture decision records |
+| `evidence/` | Screenshots and records supporting the report |
 
 ## Running the prototype
 
@@ -40,8 +53,12 @@ The ModCloth dataset (Misra, Wan and McAuley, 2018) is not stored in this reposi
 
 ```
 python research/modcloth/experiment.py path/to/modcloth_final_data.json
+python research/backtest/backtest.py path/to/modcloth_final_data.json --write-app-model
+python research/backtest/charts.py
 ```
+
+The notebook downloads the data itself.
 
 ## Status
 
-Proof of concept. Probabilities in the current engine are stated modelling assumptions, not validated fit predictions.
+Proof of concept. The sensor model is learned from ModCloth; the belief width and the 50% abstain bar are design choices that a pilot will tune.
