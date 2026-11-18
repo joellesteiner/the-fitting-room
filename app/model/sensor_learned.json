@@ -1,0 +1,39 @@
+{
+  "description": "P(report | true size minus worn size), learned from ModCloth bottoms repeat buyers. Produced by research/backtest/backtest.py.",
+  "source": "Misra, Wan and McAuley (2018), ModCloth clothing fit dataset",
+  "pairs_used": {
+    "-2": 884,
+    "-1": 742,
+    "0": 3247,
+    "1": 702,
+    "2": 810
+  },
+  "smoothing": "Laplace, alpha = 1",
+  "sensor": {
+    "-2": {
+      "tight": 0.1691,
+      "right": 0.6888,
+      "loose": 0.1421
+    },
+    "-1": {
+      "tight": 0.1597,
+      "right": 0.7208,
+      "loose": 0.1195
+    },
+    "0": {
+      "tight": 0.104,
+      "right": 0.8209,
+      "loose": 0.0751
+    },
+    "1": {
+      "tight": 0.166,
+      "right": 0.7603,
+      "loose": 0.0738
+    },
+    "2": {
+      "tight": 0.1624,
+      "right": 0.7503,
+      "loose": 0.0873
+    }
+  }
+}

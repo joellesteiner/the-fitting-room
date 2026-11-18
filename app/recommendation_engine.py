@@ -6,12 +6,15 @@ Three layers, kept separate on purpose:
 3. A Bayesian belief over sizes says how confident we are, abstains below a threshold,
    and is updated by post delivery fit reports (prior x likelihood, then normalise).
 
-All probabilities are illustrative modelling assumptions, not validated fit predictions.
+The sensor model is learned from ModCloth fit reports. The prior's width and the abstain
+threshold are still design assumptions, to be tuned in a pilot.
 """
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import json
 import math
 import re
+from pathlib import Path
 
 CHART = 'https://www.levi.com/GB/en_GB/info/sizechart'
 GUIDE = 'https://www.levi.com/GB/en_GB/clothing/women/jeans/straight/c/levi_clothing_women_jeans_straight'
@@ -55,13 +58,22 @@ SPREAD = {'same': 0.70, 'family': 0.75, 'different': 1.20}   # belief width, in 
 OVERSIZED_EXTRA = 0.40        # sizing up for an oversized look is unreliable, widen further
 LEAN = 0.15                   # a tight or loose report nudges belief further in that direction
 # Sensor model: P(report | true size minus size worn), by difference in size steps.
-SENSOR = {
-    -2: {'tight': 0.03, 'right': 0.07, 'loose': 0.90},
-    -1: {'tight': 0.05, 'right': 0.15, 'loose': 0.80},
-    0: {'tight': 0.15, 'right': 0.70, 'loose': 0.15},
-    1: {'tight': 0.80, 'right': 0.15, 'loose': 0.05},
-    2: {'tight': 0.90, 'right': 0.07, 'loose': 0.03},
-}
+# Learned from ModCloth repeat buyers by research/backtest/backtest.py (see the notebook there).
+MODEL_FILE = Path(__file__).parent / 'model' / 'sensor_learned.json'
+
+
+def load_sensor(path=MODEL_FILE):
+    raw = json.loads(Path(path).read_text(encoding='utf-8'))['sensor']
+    table = {int(d): {r: float(p) for r, p in row.items()} for d, row in raw.items()}
+    if sorted(table) != [-2, -1, 0, 1, 2]:
+        raise ValueError('Sensor model must cover size differences from -2 to 2')
+    for row in table.values():
+        if set(row) != {'tight', 'right', 'loose'} or abs(sum(row.values()) - 1) > 0.01:
+            raise ValueError('Each sensor row must give tight, right and loose probabilities summing to 1')
+    return table
+
+
+SENSOR = load_sensor()
 
 V = TfidfVectorizer(ngram_range=(1, 2), stop_words='english')
 X = V.fit_transform([p['desc'] + ' ' + p['name'] for p in CATALOG])
@@ -95,12 +107,12 @@ def prior_belief(centre_size, spread, lean):
     return normalise({s: math.exp(-((i - i0) ** 2) / (2 * spread ** 2)) for i, s in enumerate(SIZES)})
 
 
-def likelihood(report, true_size, worn_size):
+def likelihood(report, true_size, worn_size, sensor=None):
     d = SIZES.index(true_size) - SIZES.index(worn_size)
-    return SENSOR[max(-2, min(2, d))][report]
+    return (sensor or SENSOR)[max(-2, min(2, d))][report]
 
 
-def update_belief(belief, worn_size, report):
+def update_belief(belief, worn_size, report, sensor=None):
     """One Bayes update: posterior is proportional to likelihood times prior."""
     if report not in ('tight', 'right', 'loose'):
         raise ValueError('Report must be tight, right or loose')
@@ -111,7 +123,7 @@ def update_belief(belief, worn_size, report):
     if set(prior) != set(SIZES) or abs(sum(prior.values()) - 1) > 0.01:
         raise ValueError('Belief must cover every chart size and sum to 1')
     prior = normalise(prior)
-    unnorm = {s: likelihood(report, s, worn_size) * prior[s] for s in SIZES}
+    unnorm = {s: likelihood(report, s, worn_size, sensor) * prior[s] for s in SIZES}
     evidence = sum(unnorm.values())
     return normalise(unnorm), evidence
 
@@ -170,7 +182,7 @@ def recommend(owned_size, feel, intent, query):
         reasons.append(f'The top size holds only {round(confidence * 100)}% of our belief, below our 50% bar.')
 
     caution = ['Published waist values describe bodies, not finished jeans.',
-               'Confidence comes from stated modelling assumptions, not validated fit outcomes.']
+               'Fit report probabilities are learned from another retailer (ModCloth); confidence is calibrated there, not yet on this catalogue.']
     if best['stretch'] != 'No stretch (100% cotton on listed style)':
         caution.append('Stretch properties for this exact product variant are not fully verified.')
 
