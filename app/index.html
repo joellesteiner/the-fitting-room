@@ -1,0 +1,192 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Fitting Room: find your starting size</title><style>
+:root{--ink:#202622;--sage:#355d49;--sage2:#91ab9a;--cream:#f7f6f1;--line:#e5e6df;--muted:#69716b;--clay:#b5583c;--amber:#c08a2e}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input,select{font:inherit}button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #a7c3ae;outline-offset:2px}
+header{height:72px;display:flex;justify-content:space-between;align-items:center;padding:0 max(4vw,22px);border-bottom:1px solid var(--line);background:#fff}
+.brand{font-family:Georgia,serif;font-size:28px;letter-spacing:-1.5px}.subbrand{font-size:10px;letter-spacing:2px;color:var(--sage);font-weight:bold}
+.wrap{max-width:1220px;margin:auto;padding:30px 26px 70px}
+.headline{display:flex;align-items:end;justify-content:space-between;gap:22px;margin-bottom:18px}
+.kicker{font-size:11px;font-weight:bold;letter-spacing:2px;color:var(--sage)}
+h1,h2{font-family:Georgia,serif;font-weight:400;letter-spacing:-1.4px}h1{font-size:clamp(34px,4.4vw,56px);margin:10px 0 6px;line-height:1.05}h2{font-size:clamp(27px,2.8vw,38px);line-height:1.12;margin:8px 0 12px}
+.headline p,.hint{color:var(--muted);line-height:1.55}.headline p{max-width:600px;margin:0}
+.stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}
+.step{border:0;border-top:3px solid #d5dcd3;background:none;text-align:left;color:#9ca69e;padding:12px 0;font-size:11px;letter-spacing:1px;font-weight:bold}
+.step.active{border-color:var(--sage);color:var(--sage)}.step.done{border-color:var(--sage2);color:#506a58}
+.layout{display:grid;grid-template-columns:44% 56%;min-height:560px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 18px 44px #233a290c}
+.art{position:relative;background:#e5e9e4;display:flex;align-items:center;justify-content:center;min-height:500px;overflow:hidden;padding:60px 34px 40px}
+.art.shop{background:#e4e1d8}.art.result{background:#324f40}.art.abstain{background:#5b4a3a}
+.art .tiny{position:absolute;top:24px;left:25px;font-size:10px;letter-spacing:1.8px;font-weight:bold;color:#526457}.art.result .tiny,.art.abstain .tiny{color:#f2f5f0}
+.art .digit{position:absolute;right:24px;bottom:8px;font-family:Georgia,serif;font-size:96px;color:#ffffff5c;pointer-events:none}
+.jeans{width:min(66%,320px);filter:drop-shadow(0 25px 25px #17231b35)}
+.chart{width:100%;max-width:440px;color:#f2f5f0}.chart[hidden]{display:none}
+.chart .ctitle{font-size:12px;letter-spacing:1.6px;font-weight:bold;margin-bottom:6px;opacity:.85}
+.chart .csub{font-size:13px;opacity:.8;margin-bottom:18px;line-height:1.45}
+.bars{position:relative;display:flex;align-items:flex-end;gap:12px;height:260px;border-bottom:2px solid #ffffff55;padding-top:24px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
+.bar .fill{width:100%;background:#ffffff40;border-radius:6px 6px 0 0;transition:height .7s cubic-bezier(.2,.8,.2,1)}
+.bar.top .fill{background:#f2f5f0}.art.abstain .bar.top .fill{background:#e8c9a0}
+.bar .val{font-size:15px;font-weight:bold;margin-bottom:6px}.bar.top .val{font-size:19px}
+.bar .lab{position:absolute;bottom:-28px;font-size:14px;font-weight:bold}
+.bar .ghost{position:absolute;bottom:0;width:100%;border:2px dashed #ffffff8c;border-bottom:0;border-radius:6px 6px 0 0;transition:height .7s}
+.thresh{position:absolute;left:0;right:0;border-top:2px dashed #e8c9a0;font-size:10px;letter-spacing:1px;color:#e8c9a0;font-weight:bold}
+.thresh span{position:absolute;right:0;top:-16px}
+.legend{display:flex;gap:16px;margin-top:40px;font-size:11px;opacity:.85}.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.panel{padding:clamp(24px,3.6vw,52px);display:flex;flex-direction:column;justify-content:center}
+[hidden]{display:none!important}
+.field{margin:11px 0}.field label{display:block;font-size:12px;font-weight:bold;margin-bottom:8px}
+.field select,.field input{width:100%;border:1px solid #d7ddd6;border-radius:8px;background:#fff;padding:13px;color:var(--ink)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{background:#fff;border:1px solid #d6ddd6;border-radius:9px;padding:10px 13px;color:#536258}
+.chip.selected{background:var(--sage);border-color:var(--sage);color:#fff}
+.primary{margin-top:18px;border:0;background:var(--sage);color:#fff;padding:15px 21px;border-radius:8px;font-weight:bold;text-align:left;display:flex;justify-content:space-between;gap:12px;min-height:50px}
+.primary:disabled{opacity:.6;cursor:wait}.secondary{border:0;background:none;text-align:left;color:var(--sage);padding:10px 0}
+.row{display:flex;gap:18px;flex-wrap:wrap}
+.micro{font-size:11px;color:#7a827a;line-height:1.5;margin-top:14px}.micro a{color:var(--sage)}
+.error{color:#963c34;background:#fff1ed;padding:11px;border-radius:8px;font-size:13px;margin-top:12px}
+.pill{display:inline-block;margin-top:10px;border-radius:99px;padding:8px 12px;font-size:11px;font-weight:bold;align-self:flex-start;letter-spacing:.5px}
+.pill.ok{background:#e6efe7;color:#315b42}.pill.no{background:#f6e9dc;color:#7a4a22}
+.bigsize{font-family:Georgia,serif;font-size:clamp(64px,7.5vw,96px);letter-spacing:-4px;margin:6px 0 0;line-height:1}
+.conf{font-size:20px;font-weight:bold;color:var(--sage);margin:6px 0 2px}.conf.no{color:#7a4a22}
+.meter{height:10px;background:#eef0ea;border-radius:99px;position:relative;margin:10px 0 4px;overflow:visible}
+.meter .m{height:100%;border-radius:99px;background:var(--sage);transition:width .7s}.meter.no .m{background:var(--amber)}
+.meter .t{position:absolute;left:50%;top:-5px;bottom:-5px;border-left:2px dashed #7a827a}
+.mlab{display:flex;justify-content:space-between;font-size:10px;color:#7a827a;letter-spacing:.5px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.compare>div{background:#f5f6f2;padding:13px;border-radius:10px}
+.compare small{display:block;color:#6e786f;font-size:10px;letter-spacing:1px;margin-bottom:6px}.compare b{font-size:15px}
+.notice{border-left:3px solid #a0b5a1;padding-left:13px;font-size:13px;color:#566159;line-height:1.6;margin:8px 0}
+.notice.no{border-color:#d1a77a}
+.reasons{margin:8px 0;padding-left:18px;font-size:14px;line-height:1.6;color:#4f463c}
+.formula{font-family:Consolas,Menlo,monospace;font-size:12px;background:#f5f6f2;border-radius:8px;padding:12px;line-height:1.7;color:#3f4a42;margin-top:12px}
+.below{margin-top:22px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 24px}
+.below summary{font-weight:bold;cursor:pointer;color:var(--sage)}.below p{font-size:13px;line-height:1.6;color:#525d54}
+.footer{margin-top:22px;display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#818981}.footer a,.below a{color:var(--sage)}
+@media(max-width:760px){.wrap{padding:22px 14px}.headline{display:block}.layout{grid-template-columns:1fr}.art{min-height:300px}.jeans{width:35%}.bars{height:180px}.panel{padding:24px}.subbrand{display:none}.step{font-size:9px}.compare{grid-template-columns:1fr}}
+</style></head><body>
+<header><div class="brand">the fitting room.</div><div class="subbrand">YOUR WARDROBE IS YOUR SIZE GUIDE</div></header>
+<main class="wrap">
+<div class="headline"><div><div class="kicker">NO TAPE MEASURE · NO BODY SCAN · NO HEIGHT OR WEIGHT</div><h1>Good fit starts with what you own.</h1><p>Tell us about jeans you already wear. We give you a starting size with an honest confidence score, or tell you when we are not sure.</p></div><span class="micro">UNIVERSITY RESEARCH PROTOTYPE<br>ILLUSTRATIVE MODEL, NOT A VERIFIED FIT PREDICTION</span></div>
+<nav class="stepper" aria-label="Shopping progress">
+<button class="step active" id="step1" type="button">01 &nbsp; YOUR WARDROBE</button>
+<button class="step" id="step2" type="button">02 &nbsp; YOUR NEXT PAIR</button>
+<button class="step" id="step3" type="button">03 &nbsp; YOUR SIZE</button>
+<button class="step" id="step4" type="button">04 &nbsp; AFTER DELIVERY</button></nav>
+<div class="layout">
+<div class="art" id="art"><span class="tiny" id="artlabel">THE PIECE YOU ALREADY OWN</span>
+<svg class="jeans" id="jeans" viewBox="0 0 330 430" role="img" aria-label="Illustrated blue denim jeans"><defs><linearGradient id="denim" x1="0" x2="1"><stop stop-color="#8796a1"/><stop offset="1" stop-color="#4b657b"/></linearGradient></defs><path d="M62 33 L269 33 258 181 293 391 206 404 165 217 123 404 37 391 72 181Z" fill="url(#denim)" stroke="#364d60" stroke-width="3"/><path d="M63 60 L267 60 M165 65 L165 217 M81 88 Q105 120 127 97 M207 97 Q228 120 250 88" stroke="#b2c0ca" stroke-width="3" fill="none"/><path d="M81 36 V86 M247 36 V86 M153 33 V59 M183 33 V59 M51 380 L123 391 M208 391 L281 380" stroke="#c0cad0" stroke-width="3" fill="none"/></svg>
+<div class="chart" id="chart" hidden><div class="ctitle" id="ctitle">OUR BELIEF ABOUT YOUR SIZE</div><div class="csub" id="csub"></div><div class="bars" id="bars"></div><div class="legend" id="legend"></div></div>
+<span class="digit" id="digit">01</span></div>
+
+<section class="panel" id="page1"><div class="kicker">STEP 01 / START WITH SOMETHING FAMILIAR</div><h2>Which jeans already work for you?</h2><p class="hint">Just your usual pair and how they feel. Nothing about your body.</p>
+<div class="field"><label for="owned">Your reference garment</label><select id="owned"><option value="501">Levi's 501 Original Jeans</option></select></div>
+<div class="field"><label for="ownedSize">Size you own</label><select id="ownedSize"><option>24</option><option>25</option><option>26</option><option>27</option><option selected>28</option><option>29</option><option>30</option><option>31</option><option>32</option><option>33</option><option>34</option></select></div>
+<div class="field"><label>How do they feel?</label><div class="chips" id="feel"><button class="chip" data-v="-2">A little tight</button><button class="chip selected" data-v="0">Just right</button><button class="chip" data-v="2">A little loose</button></div></div>
+<button class="primary" id="save">Save to my wardrobe <span>→</span></button>
+<div class="micro">Size logic uses <a href="https://www.levi.com/GB/en_GB/info/sizechart" target="_blank" rel="noopener">Levi's official UK size guide</a>.</div></section>
+
+<section class="panel" id="page2" hidden><div class="kicker">STEP 02 / DESCRIBE WHAT YOU WANT NEXT</div><h2>What are you shopping for?</h2><p class="hint">Describe it in your own words. Our language model matches it to a product we hold fit data for.</p>
+<div class="field"><label for="query">Describe your next pair</label><input id="query" value="classic straight leg rigid non stretch jeans"></div>
+<div class="field"><label>Or pick a style</label><div class="chips" id="presets">
+<button class="chip preset selected" data-q="classic straight leg rigid non stretch jeans">Classic rigid</button>
+<button class="chip preset" data-q="501 90s loose straight mid rise jeans">’90s loose</button>
+<button class="chip preset" data-q="501 curve extra room thigh touch stretch jeans">Curve</button>
+<button class="chip preset" data-q="ribcage super high rise ankle straight jeans">Ribcage</button>
+<button class="chip preset" data-q="724 slim high rise straight jeans">724 slim</button></div></div>
+<div class="field"><label>How should they feel?</label><div class="chips" id="intent"><button class="chip" data-v="fitted">Fitted</button><button class="chip selected" data-v="regular">Regular</button><button class="chip" data-v="relaxed">Relaxed</button><button class="chip" data-v="oversized">Oversized</button></div></div>
+<button class="primary" id="find">Find my size <span>→</span></button><button class="secondary" id="back">← Edit my wardrobe</button>
+<div class="error" id="error" role="alert" hidden></div></section>
+
+<section class="panel" id="page3" hidden><div class="kicker" id="k3">STEP 03 / YOUR SIZE STARTING POINT</div>
+<div id="okBlock"><span class="pill ok">CONFIDENT ENOUGH TO RECOMMEND</span><div class="bigsize" id="resultSize">W29</div><div class="conf" id="confText">56% confident</div></div>
+<div id="noBlock" hidden><span class="pill no">NOT SURE, SO WE WILL NOT GUESS</span><h2 style="margin-top:12px">We'd rather not guess this one.</h2><div class="conf no" id="confTextNo">Top size only 33% likely</div></div>
+<div class="meter" id="meter"><div class="m" id="meterFill" style="width:0"></div><div class="t" title="50% bar"></div></div><div class="mlab"><span>0%</span><span>WE RECOMMEND ONLY ABOVE 50%</span><span>100%</span></div>
+<div class="compare"><div><small>YOU OWN</small><b id="ownedSummary">501 Original · W28</b></div><div><small>YOU WANT</small><b id="newSummary">New pair</b></div></div>
+<p class="notice" id="plain"></p><ul class="reasons" id="reasons" hidden></ul>
+<p class="micro" id="abstainLink" hidden>Instead, check the <a href="https://www.levi.com/GB/en_GB/info/sizechart" target="_blank" rel="noopener">official Levi's size guide</a> or try a cut closer to the jeans you own.</p>
+<button class="primary" id="toReport">I bought it: report how it fits <span>→</span></button>
+<div class="row"><button class="secondary" id="again">↻ Try another style</button><button class="secondary" id="edit">← Edit wardrobe</button></div></section>
+
+<section class="panel" id="page4" hidden><div class="kicker">STEP 04 / REPORT REAL FIT AFTER DELIVERY</div><h2>How did they fit?</h2><p class="hint">Your report is evidence. We update our belief with Bayes' rule, so next time we start closer.</p>
+<div class="field"><label for="worn">Size you received</label><select id="worn"></select></div>
+<div class="field"><label>How do they fit?</label><div class="chips" id="reportChips"><button class="chip" data-v="tight">Too tight</button><button class="chip" data-v="right">Just right</button><button class="chip" data-v="loose">Too loose</button></div></div>
+<div id="updateOut" hidden><div class="compare"><div><small>BEFORE YOUR REPORT</small><b id="beforeText"></b></div><div><small>AFTER YOUR REPORT</small><b id="afterText"></b></div></div>
+<p class="notice" id="updatePlain"></p><div class="formula" id="formula"></div></div>
+<p class="micro">Fit reports are opt in, stored against this garment only, and never include body measurements.</p>
+<div class="row"><button class="secondary" id="back3">← Back to my size</button><button class="secondary" id="restart">Start again</button></div></section>
+</div>
+
+<div class="below" id="technical" hidden><details><summary>Behind the recommendation · how the AI works and its limits</summary><div id="techbody"></div>
+<p><b>Three layers.</b> 1) NLP retrieval: TF IDF matches your words to a catalogue product. 2) A transparent chart rule turns the size you own into a starting size. 3) Probabilistic reasoning: a Bayesian belief over sizes gives the confidence, abstains below 50%, and updates when you report real fit. Probabilities are stated modelling assumptions until a pilot measures real outcomes.</p></details></div>
+<div class="footer"><span>University prototype · offline catalogue of 5 Levi's styles · source links included</span><a href="https://www.levi.com/GB/en_GB/info/sizechart" target="_blank" rel="noopener">Official Levi's size guide ↗</a></div>
+</main>
+<script>
+const el=id=>document.getElementById(id);
+let saved=null,feel=0,intention='regular',last=null,reportVal=null;
+const LABEL={'-2':'a little tight','0':'just right','2':'a little loose'};
+function navigate(n){if(n>1&&!saved)return;if(n>=3&&!last)return;
+ [1,2,3,4].forEach(i=>{el('page'+i).hidden=i!==n;el('step'+i).classList.toggle('active',i===n);el('step'+i).classList.toggle('done',i<n)});
+ el('digit').textContent='0'+n;
+ el('artlabel').textContent=['','YOUR WARDROBE REFERENCE','YOUR NEXT PAIR','WHAT THE MODEL BELIEVES','UPDATING THE BELIEF'][n];
+ const abst=last&&last.decision==='abstain'&&n===3;
+ el('art').className='art '+(n===2?'shop':n>=3?(abst?'abstain':'result'):'');
+ el('jeans').style.display=n>=3?'none':'';el('chart').hidden=n<3;
+ el('technical').hidden=n<3;
+ if(n===3&&last)drawChart(last,null);
+ if(n===4)setupReport();
+ window.scrollTo({top:0,behavior:'instant'})}
+function chips(id,fn){document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.toggle('selected',x===b));fn(b.dataset.v)})}
+chips('feel',v=>feel=Number(v));chips('intent',v=>intention=v);chips('presets',()=>{});
+document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',()=>{el('query').value=b.dataset.q}));
+chips('reportChips',v=>{reportVal=v;sendReport()});
+el('save').onclick=()=>{saved={size:Number(el('ownedSize').value),feel};last=null;navigate(2)};
+el('back').onclick=()=>navigate(1);
+const pct=x=>Math.round(x*100)+'%';
+function drawChart(d,prior){
+ const sizes=d.window, b=d.belief, top=String(d.size_num);
+ el('ctitle').textContent=prior?'BELIEF BEFORE AND AFTER YOUR REPORT':'OUR BELIEF ABOUT YOUR TRUE SIZE';
+ el('csub').textContent=prior?'Dashed outline: before. Solid: after. Posterior = likelihood × prior, normalised.':(d.decision==='abstain'?'Belief is spread out, so no size clears the 50% bar.':'Most of the belief sits on one size, above the 50% bar.');
+ const max=1; let h='';
+ sizes.forEach(s=>{const p=b[String(s)]||0,g=prior?(prior[String(s)]||0):null;
+  h+=`<div class="bar ${String(s)===top?'top':''}"><div class="val">${pct(p)}</div>${g!==null?`<div class="ghost" style="height:${g/max*100}%"></div>`:''}<div class="fill" style="height:0%" data-h="${p/max*100}"></div><div class="lab">W${s}</div></div>`});
+ h+=`<div class="thresh" style="bottom:${50}%"><span>50% BAR</span></div>`;
+ el('bars').innerHTML=h;
+ el('legend').innerHTML=prior?'<span><i style="background:#f2f5f0"></i>After</span><span><i style="border:2px dashed #ffffffaa"></i>Before</span><span><i style="background:#e8c9a0"></i>Recommend only above 50%</span>':`<span><i style="background:${d.decision==='abstain'?'#e8c9a0':'#f2f5f0'}"></i>Most likely size</span><span><i style="background:#ffffff40"></i>Other sizes</span>`;
+ requestAnimationFrame(()=>setTimeout(()=>document.querySelectorAll('#bars .fill').forEach(f=>f.style.height=f.dataset.h+'%'),40));
+}
+function renderResult(d){
+ const ok=d.decision==='recommend';
+ el('okBlock').hidden=!ok;el('noBlock').hidden=ok;el('abstainLink').hidden=ok;el('toReport').hidden=!ok;
+ el('meter').className='meter'+(ok?'':' no');setTimeout(()=>el('meterFill').style.width=pct(d.confidence),60);
+ el('resultSize').textContent=d.size;el('confText').textContent=pct(d.confidence)+' confident';
+ el('confTextNo').textContent=`Most likely ${d.size}, but only ${pct(d.confidence)} likely`;
+ el('ownedSummary').textContent='501 Original · W'+saved.size+' · '+LABEL[String(saved.feel)];
+ el('newSummary').textContent=d.product+' · '+intention;
+ el('plain').className='notice'+(ok?'':' no');
+ el('plain').textContent=ok?`Your W${saved.size} 501s feel ${LABEL[String(saved.feel)]}. For ${d.product} with a ${intention} feel, ${d.size} is our starting point, and we are ${pct(d.confidence)} confident. Not a guarantee: tell us how they fit and we will learn.`:'Here is why:';
+ const r=el('reasons');r.innerHTML='';r.hidden=ok;(d.abstain_reasons||[]).forEach(x=>{const li=document.createElement('li');li.textContent=x;r.append(li)});
+ el('techbody').innerHTML='';const p=document.createElement('p');
+ p.textContent=`Retrieval: “${d.input.query}” matched ${d.product} (TF IDF cosine ${d.retrieval_score}; we distrust matches under 0.075). Chart rule: ${d.reference_waist_cm} cm reference, adjusted for fit report and feel, gives ${d.target_waist_cm} cm, nearest ${d.rule_size}. Belief: centred on ${d.rule_size}, width ${d.spread} size steps because this cut is “${d.similarity}” to your reference. Decision: ${ok?'recommend':'abstain'} (top size ${pct(d.confidence)} vs 50% bar).`;
+ el('techbody').append(p);const w=document.createElement('p');w.textContent='Limitations: '+d.warnings.join(' ');el('techbody').append(w);
+}
+el('find').onclick=async()=>{el('error').hidden=true;el('find').disabled=true;el('find').textContent='Finding your size…';
+ try{const r=await fetch('/api/recommend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({owned_size:saved.size,feel:saved.feel,intent:intention,query:el('query').value})});
+  const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to calculate');last=d;renderResult(d);navigate(3)}
+ catch(e){el('error').textContent=e.message+(e.message.includes('fetch')?' Is the server running? Start START_WINDOWS.bat and retry.':'');el('error').hidden=false}
+ finally{el('find').disabled=false;el('find').innerHTML='Find my size <span>→</span>'}};
+function setupReport(){const w=el('worn');w.innerHTML='';[24,25,26,27,28,29,30,31,32,33,34].forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='W'+s;if(s===last.size_num)o.selected=true;w.append(o)});
+ reportVal=null;document.querySelectorAll('#reportChips button').forEach(x=>x.classList.remove('selected'));el('updateOut').hidden=true;drawChart(last,null)}
+el('worn').onchange=()=>{if(reportVal)sendReport()};
+async function sendReport(){try{const r=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({belief:last.belief,worn:Number(el('worn').value),report:reportVal})});
+ const d=await r.json();if(!r.ok)throw Error(d.error);
+ const ws=Array.from(new Set([...last.window,...d.window])).sort((a,b)=>a-b);drawChart({...d,window:ws},d.prior);
+ el('updateOut').hidden=false;
+ el('beforeText').textContent=`${last.size} · ${pct(last.confidence)}`;
+ el('afterText').textContent=`${d.size} · ${pct(d.confidence)}${d.decision==='abstain'?' (below bar)':''}`;
+ const word={tight:'too tight',right:'just right',loose:'too loose'}[d.report];
+ el('updatePlain').textContent=`You said W${d.worn} was ${word}. Next time we start at ${d.size}, ${pct(d.confidence)} confident.${d.decision==='abstain'?' That is below our 50% bar, so we would show the size guide instead of guessing.':''} One report shifts the belief; it does not wipe out everything we knew.`;
+ const sz=String(d.size_num);
+ el('formula').innerHTML=`P(${d.size} | “${word}”) = P(“${word}” | ${d.size}) × P(${d.size}) ÷ P(“${word}”)<br>= ${d.likelihoods[sz]} × ${(d.prior[sz]).toFixed(3)} ÷ ${d.evidence.toFixed(3)} = <b>${d.belief[sz].toFixed(3)}</b>`;
+ }catch(e){el('updatePlain').textContent='Could not update: '+e.message;el('updateOut').hidden=false}}
+el('toReport').onclick=()=>navigate(4);el('back3').onclick=()=>navigate(3);
+el('again').onclick=()=>navigate(2);el('edit').onclick=()=>navigate(1);
+el('restart').onclick=()=>{saved=null;last=null;navigate(1)};
+[1,2,3,4].forEach(i=>el('step'+i).onclick=()=>navigate(i));
+</script></body></html>
