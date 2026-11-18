@@ -1,0 +1,11 @@
+model,features,small,fit,large,macro_recall,macro_f1,accuracy
+Majority class baseline,size+category,0.0,1.0,0.0,0.333,0.279,0.72
+"Random forest, naive",size+height_inches+category,0.007,0.994,0.008,0.336,0.288,0.717
+"Random forest, class balanced",size+height_inches+category,0.537,0.245,0.419,0.4,0.294,0.312
+"Logistic regression, naive",size+height_inches+category,0.0,1.0,0.0,0.333,0.279,0.72
+"Logistic regression, class balanced",size+height_inches+category,0.586,0.214,0.293,0.364,0.262,0.282
+"Gradient boosting, naive",size+height_inches+category,0.0,1.0,0.002,0.334,0.28,0.72
+"Gradient boosting, class balanced",size+height_inches+category,0.542,0.242,0.453,0.412,0.299,0.315
+"Gradient boosting, balanced, no height",size+category,0.541,0.252,0.44,0.411,0.302,0.32
+"Gradient boosting, balanced, wardrobe",size+category+u_small+u_large+size_vs_usual,0.559,0.243,0.449,0.417,0.302,0.318
+"Logistic regression, balanced, wardrobe",size+category+u_small+u_large+size_vs_usual,0.549,0.293,0.343,0.395,0.307,0.34
