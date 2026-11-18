@@ -1,5 +1,13 @@
 import unittest
-from recommendation_engine import recommend, report, rank, update_belief, prior_belief, WAIST, CATALOG, SIZES
+import json
+import tempfile
+
+from recommendation_engine import recommend, report, rank, update_belief, prior_belief, load_sensor, SENSOR, WAIST, CATALOG, SIZES
+
+# The 001 hand set sensor, used only to check the Bayes arithmetic against a hand calculation.
+ASSUMED = {-2: {'tight': 0.03, 'right': 0.07, 'loose': 0.90}, -1: {'tight': 0.05, 'right': 0.15, 'loose': 0.80},
+           0: {'tight': 0.15, 'right': 0.70, 'loose': 0.15}, 1: {'tight': 0.80, 'right': 0.15, 'loose': 0.05},
+           2: {'tight': 0.90, 'right': 0.07, 'loose': 0.03}}
 
 RIGID = 'classic straight leg rigid non stretch jeans'
 
@@ -42,15 +50,32 @@ class Engine(unittest.TestCase):
     def test_tight_report_moves_belief_up(self):
         r = recommend(28, -2, 'regular', RIGID)
         u = report(r['belief'], 29, 'tight')
-        self.assertEqual(u['size'], 'W30')
-        self.assertAlmostEqual(u['confidence'], 0.671, places=2)
+        above = lambda b: sum(p for s, p in b.items() if int(s) > 29)
+        self.assertGreater(above(u['belief']), above(r['belief']))
+    def test_one_tight_report_is_not_enough_to_be_sure(self):
+        # Learned reports are weak evidence, so one 'tight' lowers confidence below the bar.
+        r = recommend(28, -2, 'regular', RIGID)
+        u = report(r['belief'], 29, 'tight')
+        self.assertLess(u['confidence'], r['confidence'])
+        self.assertEqual(u['decision'], 'abstain')
     def test_right_report_raises_confidence(self):
         r = recommend(28, -2, 'regular', RIGID)
         self.assertGreater(report(r['belief'], 29, 'right')['confidence'], r['confidence'])
     def test_bayes_matches_hand_calculation(self):
         prior = {s: 0 for s in SIZES}; prior.update({28: 0.15, 29: 0.60, 30: 0.25})
-        post, _ = update_belief(prior, 29, 'tight')
+        post, _ = update_belief(prior, 29, 'tight', ASSUMED)
         self.assertAlmostEqual(post[30], 0.2 / 0.2975, places=4)
+    def test_learned_sensor_loaded(self):
+        self.assertEqual(sorted(SENSOR), [-2, -1, 0, 1, 2])
+        for row in SENSOR.values():
+            self.assertAlmostEqual(sum(row.values()), 1, places=3)
+        self.assertGreater(SENSOR[1]['tight'], SENSOR[0]['tight'])    # too small reads tighter than right size
+        self.assertGreater(SENSOR[-1]['loose'], SENSOR[0]['loose'])   # too big reads looser than right size
+    def test_bad_sensor_file_rejected(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump({'sensor': {'0': {'tight': 0.5, 'right': 0.5, 'loose': 0.5}}}, f)
+        with self.assertRaises(ValueError):
+            load_sensor(f.name)
     def test_bad_report_rejected(self):
         with self.assertRaises(ValueError): update_belief(prior_belief(29, 0.7, 0), 29, 'massive')
 
