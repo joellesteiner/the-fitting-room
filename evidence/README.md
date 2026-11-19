@@ -29,3 +29,4 @@ Dating every file shows the work happening over time, which is the point of the 
 | Date | File | Shows | Used in |
 | --- | --- | --- | --- |
 | 18 Nov 2026 | process/20261118_project_board_created.png | Project board set up with all 10 issues in Todo | Proof of Concept, process |
+| 19 Nov 2026 | security/20261119_sql_injection_wardrobe.md | Injection payloads against wardrobe storage refused; data intact; tests detect an unsafe rewrite | Privacy and Security, R1 |
