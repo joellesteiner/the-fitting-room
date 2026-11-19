@@ -14,6 +14,10 @@ The recommender has three layers, kept separate on purpose:
 
 No height, weight or body measurements are collected.
 
+## What is stored
+
+Saved pairs and fit reports are kept in a local SQLite file, `app/data/fitting_room.db`, which is never committed. Each shopper is a random ID kept in their browser; there are no names, emails or body data. Every query is parameterised. See [ADR 0002](docs/adr/0002-store-data-in-sqlite.md).
+
 ## Results
 
 Backtested on 2,213 ModCloth shoppers the model never saw (five fold cross validation by shopper):
@@ -28,7 +32,7 @@ Full analysis: [research/backtest/backtest.ipynb](research/backtest/backtest.ipy
 
 | Path | Contents |
 | --- | --- |
-| `app/` | Web prototype: Python server, recommendation engine, learned model file, front end and unit tests |
+| `app/` | Web prototype: Python server, recommendation engine, SQLite storage, learned model file, front end and tests |
 | `research/backtest/` | Learned model and backtest: code, tests, notebook, results and charts |
 | `research/modcloth/` | 001 fit classifier experiment on the ModCloth dataset |
 | `docs/adr/` | Architecture decision records |
@@ -46,6 +50,8 @@ python server.py
 ```
 
 Then open http://127.0.0.1:8799. On Windows you can double click `app/START_WINDOWS.bat` instead.
+
+To use a different database file, set `FITTING_ROOM_DB` before starting the server. To start afresh, delete `app/data/fitting_room.db`.
 
 ## Research data
 
