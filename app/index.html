@@ -191,14 +191,15 @@ function renderResult(d){
  el('techbody').append(p);const w=document.createElement('p');w.textContent='Limitations: '+d.warnings.join(' ');el('techbody').append(w);
 }
 el('find').onclick=async()=>{el('error').hidden=true;el('find').disabled=true;el('find').textContent='Finding your size…';
- try{const r=await fetch('/api/recommend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({owned_size:saved.size,feel:saved.feel,intent:intention,query:el('query').value})});
+ try{const r=await fetch('/api/recommend',{method:'POST',headers:shopperHeaders(),body:JSON.stringify({owned_size:saved.size,feel:saved.feel,intent:intention,query:el('query').value})});
   const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to calculate');last=d;renderResult(d);navigate(3)}
  catch(e){el('error').textContent=e.message+(e.message.includes('fetch')?' Is the server running? Start START_WINDOWS.bat and retry.':'');el('error').hidden=false}
  finally{el('find').disabled=false;el('find').innerHTML='Find my size <span>→</span>'}};
 function setupReport(){const w=el('worn');w.innerHTML='';[24,25,26,27,28,29,30,31,32,33,34].forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='W'+s;if(s===last.size_num)o.selected=true;w.append(o)});
  reportVal=null;document.querySelectorAll('#reportChips button').forEach(x=>x.classList.remove('selected'));el('updateOut').hidden=true;drawChart(last,null)}
 el('worn').onchange=()=>{if(reportVal)sendReport()};
-async function sendReport(){try{const r=await fetch('/api/report',{method:'POST',headers:shopperHeaders(),body:JSON.stringify({belief:last.belief,worn:Number(el('worn').value),report:reportVal,product_id:last.product_id})});
+// Only the recommendation ID, the size worn and the fit are sent. The server applies them to its own stored belief.
+async function sendReport(){try{const r=await fetch('/api/report',{method:'POST',headers:shopperHeaders(),body:JSON.stringify({recommendation_id:last.recommendation_id,worn:Number(el('worn').value),report:reportVal})});
  const d=await r.json();if(!r.ok)throw Error(d.error);
  const ws=Array.from(new Set([...last.window,...d.window])).sort((a,b)=>a-b);drawChart({...d,window:ws},d.prior);
  el('updateOut').hidden=false;
