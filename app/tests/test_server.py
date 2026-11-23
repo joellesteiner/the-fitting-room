@@ -183,7 +183,8 @@ class Api(unittest.TestCase):
     def test_wrong_types_are_refused(self):
         for bad in ({'product_id': '501', 'size': '28 OR 1=1', 'feel': 0},
                     {'product_id': '501', 'size': 28, 'feel': 'tight'},
-                    {'product_id': ['501'], 'size': 28, 'feel': 0}):
+                    {'product_id': ['501'], 'size': 28, 'feel': 0},
+                    {'product_id': '501', 'size': 28, 'feel': False}):     # False == 0 in Python
             self.assertEqual(self.call('POST', '/api/wardrobe', bad)[0], 400)
 
     def test_unknown_but_well_formed_shopper_gets_404(self):

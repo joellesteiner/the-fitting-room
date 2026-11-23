@@ -147,9 +147,9 @@ class Handler(SimpleHTTPRequestHandler):
         # Check every value here, at the edge of the system, before anything touches the database.
         if product_id not in PRODUCT_IDS:
             raise ValueError('Unknown product')
-        if not isinstance(size, int) or size not in WAIST:
+        if not is_whole_number(size) or size not in WAIST:
             raise ValueError('This size is outside the published chart range')
-        if not isinstance(feel, int) or feel not in (-2, 0, 2):
+        if not is_whole_number(feel) or feel not in (-2, 0, 2):
             raise ValueError('Invalid saved fit feedback')
         with closing(storage.connect(self.db_path)) as conn:
             if shopper is None:
