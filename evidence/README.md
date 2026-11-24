@@ -30,3 +30,4 @@ Dating every file shows the work happening over time, which is the point of the 
 | --- | --- | --- | --- |
 | 18 Nov 2026 | process/20261118_project_board_created.png | Project board set up with all 10 issues in Todo | Proof of Concept, process |
 | 18 Nov 2026 | process/20261118_board_after_pr11.png | Issues #1 and #2 moved to Done after PR #11 merged | Proof of Concept, process |
+| 24 Nov 2026 | process/20261124_board_midway.png | #3 and #4 in progress with PRs #13 and #14 linked; #1 and #2 done; six issues to do | Proof of Concept, process |
