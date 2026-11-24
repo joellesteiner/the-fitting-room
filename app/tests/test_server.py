@@ -1,4 +1,5 @@
 """End to end tests: start the real server on a spare port with a temporary database and send HTTP requests."""
+import http.client
 import json
 import sqlite3
 import tempfile
@@ -200,6 +201,57 @@ class Api(unittest.TestCase):
         with mock.patch('storage.list_wardrobe', side_effect=failure):
             status, body = self.save_pair()
         self.assertEqual((status, body), (500, {'error': 'Storage error'}))
+
+
+class PublicFilesOnly(unittest.TestCase):
+    """Issue #17: the browser may fetch the front end and nothing else on disk."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        Handler.db_path = Path(cls.tmp.name) / 'test.db'
+        Handler.log_message = lambda *a: None
+        cls.httpd = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        cls.port = cls.httpd.server_address[1]
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        cls.tmp.cleanup()
+
+    def status(self, path):
+        # http.client sends the path exactly as written, so tricks with .. are not tidied up on the way.
+        conn = http.client.HTTPConnection('127.0.0.1', self.port)
+        try:
+            conn.request('GET', path)
+            response = conn.getresponse()
+            response.read()
+            return response.status
+        finally:
+            conn.close()
+
+    def test_front_end_is_served(self):
+        self.assertEqual(self.status('/'), 200)
+        self.assertEqual(self.status('/index.html'), 200)
+
+    def test_database_is_not_served(self):
+        self.assertEqual(self.status('/data/fitting_room.db'), 404)
+
+    def test_source_code_tests_and_model_are_not_served(self):
+        for path in ('/server.py', '/storage.py', '/recommendation_engine.py', '/requirements.txt',
+                     '/tests/test_server.py', '/model/sensor_learned.json', '/START_WINDOWS.bat'):
+            self.assertEqual(self.status(path), 404, path)
+
+    def test_climbing_out_of_the_web_root_is_refused(self):
+        for path in ('/../server.py', '/../data/fitting_room.db', '/%2e%2e/server.py', '/static/../server.py',
+                     '/..%2fserver.py'):
+            self.assertEqual(self.status(path), 404, path)
+
+    def test_no_folder_listings(self):
+        self.assertEqual(self.status('/data/'), 404)
+        self.assertEqual(self.status('/tests/'), 404)
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,3 +34,4 @@ Dating every file shows the work happening over time, which is the point of the 
 | 23 Nov 2026 | security/20261123_tampered_belief_rejected.md | Forged belief accepted before and refused after; made up, tampered and other shoppers' IDs refused; replayed reports stored once | Privacy and Security, R2 |
 | 24 Nov 2026 | process/20261124_board_midway.png | #3 and #4 in progress with PRs #13 and #14 linked; #1 and #2 done; six issues to do | Proof of Concept, process |
 | 24 Nov 2026 | process/20261124_board_after_pr15.png | #1 to #4 done after PRs #13 and #15 merged; nothing in progress; six issues to do | Proof of Concept, process |
+| 24 Nov 2026 | security/20261124_database_download_blocked.md | Whole database and source downloadable before; a stolen shopper ID reused; 404 for every private path after | Privacy and Security, R3 |
