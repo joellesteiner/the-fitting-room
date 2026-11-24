@@ -10,6 +10,9 @@ import storage
 from recommendation_engine import recommend, report, CATALOG, CHART, WAIST
 
 ROOT = Path(__file__).parent
+# The web root. Only files in this folder can be fetched by a browser. The database in app/data,
+# the source code and the tests sit outside it, so the static file handler cannot reach them.
+PUBLIC = ROOT / 'static'
 PRODUCT_IDS = {p['id'] for p in CATALOG}
 # The shopper ID is sent in a header, not the URL, so it does not end up in browser history or access logs.
 SHOPPER_HEADER = 'X-Shopper-Id'
@@ -38,7 +41,12 @@ class Handler(SimpleHTTPRequestHandler):
     db_path = storage.DEFAULT_DB
 
     def __init__(self, *a, **kw):
-        super().__init__(*a, directory=str(ROOT), **kw)
+        super().__init__(*a, directory=str(PUBLIC), **kw)
+
+    def list_directory(self, path):
+        # Never show a folder listing; a missing page is just a 404.
+        self.send_error(404, 'Not found')
+        return None
 
     def reply(self, status, obj):
         raw = json.dumps(obj).encode()
