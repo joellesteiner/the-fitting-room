@@ -34,7 +34,8 @@ Full analysis: [research/backtest/backtest.ipynb](research/backtest/backtest.ipy
 
 | Path | Contents |
 | --- | --- |
-| `app/` | Web prototype: Python server, recommendation engine, SQLite storage, learned model file, front end and tests |
+| `app/` | Web prototype: Python server, recommendation engine, SQLite storage, learned model file and tests |
+| `app/static/` | Front end. This is the only folder the server lets a browser fetch from |
 | `research/backtest/` | Learned model and backtest: code, tests, notebook, results and charts |
 | `research/modcloth/` | 001 fit classifier experiment on the ModCloth dataset |
 | `docs/adr/` | Architecture decision records |
