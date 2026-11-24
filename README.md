@@ -18,6 +18,8 @@ No height, weight or body measurements are collected.
 
 Saved pairs and fit reports are kept in a local SQLite file, `app/data/fitting_room.db`, which is never committed. Each shopper is a random ID kept in their browser; there are no names, emails or body data. Every query is parameterised. See [ADR 0002](docs/adr/0002-store-data-in-sqlite.md).
 
+The belief behind each recommendation stays on the server. The browser gets a random recommendation ID and sends back only that ID, the size worn and how it fitted, so it cannot choose the probabilities the update starts from, and each recommendation counts as one fit report at most. See [ADR 0003](docs/adr/0003-keep-the-belief-on-the-server.md).
+
 ## Results
 
 Backtested on 2,213 ModCloth shoppers the model never saw (five fold cross validation by shopper):

@@ -13,12 +13,25 @@ ROOT = Path(__file__).parent
 PRODUCT_IDS = {p['id'] for p in CATALOG}
 # The shopper ID is sent in a header, not the URL, so it does not end up in browser history or access logs.
 SHOPPER_HEADER = 'X-Shopper-Id'
-# IDs made by storage.create_shopper are URL safe base64. Anything else is refused before it reaches the database.
-SHOPPER_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
+# IDs made by storage.create_shopper and storage.save_recommendation are URL safe base64.
+# Anything else is refused before it reaches the database.
+ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
+# The only fields a fit report may carry. The belief is deliberately not one of them:
+# the server applies the report to its own stored copy, so the browser cannot choose the probabilities.
+REPORT_FIELDS = {'recommendation_id', 'worn', 'report'}
 
 
 class UnknownShopper(Exception):
     pass
+
+
+class UnknownRecommendation(Exception):
+    pass
+
+
+def is_whole_number(value):
+    # In Python True and False count as int (True == 1), so they are ruled out explicitly.
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -42,7 +55,7 @@ class Handler(SimpleHTTPRequestHandler):
             if required:
                 raise ValueError('Missing shopper ID')
             return None
-        if not SHOPPER_ID_PATTERN.fullmatch(value):
+        if not ID_PATTERN.fullmatch(value):
             raise ValueError('Invalid shopper ID')
         return value
 
@@ -52,6 +65,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, action())
         except UnknownShopper:
             return self.reply(404, {'error': 'Unknown shopper ID'})
+        except UnknownRecommendation:
+            return self.reply(404, {'error': 'Unknown recommendation'})
         except sqlite3.Error:
             # Never send database error text to the browser: it can reveal table and column names.
             return self.reply(500, {'error': 'Storage error'})
@@ -87,22 +102,42 @@ class Handler(SimpleHTTPRequestHandler):
 
     def post_recommend(self):
         data = self.read_json()
-        return recommend(data.get('owned_size'), data.get('feel'), data.get('intent'), data.get('query'))
+        shopper = self.shopper_id(required=False)
+        result = recommend(data.get('owned_size'), data.get('feel'), data.get('intent'), data.get('query'))
+        # Keep the server's own copy of the belief. The browser gets an ID to refer to it, and a copy to draw.
+        with closing(storage.connect(self.db_path)) as conn:
+            if shopper is not None and not storage.shopper_exists(conn, shopper):
+                raise UnknownShopper()
+            result['recommendation_id'] = storage.save_recommendation(conn, shopper, result['product_id'],
+                                                                      result['belief'])
+        return result
 
     def post_report(self):
         data = self.read_json()
+        unexpected = set(data) - REPORT_FIELDS
+        if unexpected:
+            raise ValueError('Unexpected field: ' + ', '.join(sorted(unexpected)))
+        recommendation_id, worn, report_value = data.get('recommendation_id'), data.get('worn'), data.get('report')
+        if not isinstance(recommendation_id, str) or not ID_PATTERN.fullmatch(recommendation_id):
+            raise ValueError('Invalid recommendation ID')
+        if not is_whole_number(worn) or worn not in WAIST:
+            raise ValueError('Worn size is outside the published chart range')
+        if report_value not in ('tight', 'right', 'loose'):
+            raise ValueError('Report must be tight, right or loose')
         shopper = self.shopper_id(required=False)
-        result = report(data.get('belief') or {}, data.get('worn'), data.get('report'))
-        # The belief update works without an account. A report is only stored when the shopper has saved a wardrobe.
-        if shopper is not None:
-            product_id = data.get('product_id')
-            if product_id not in PRODUCT_IDS:
-                raise ValueError('Unknown product')
-            with closing(storage.connect(self.db_path)) as conn:
-                if not storage.shopper_exists(conn, shopper):
-                    raise UnknownShopper()
-                storage.add_fit_report(conn, shopper, product_id, result['worn'], result['report'])
-            result['stored'] = True
+        with closing(storage.connect(self.db_path)) as conn:
+            found = storage.get_recommendation(conn, recommendation_id)
+            # A recommendation made for one shopper can only be reported on by that shopper.
+            # A wrong owner gets the same reply as a missing ID, so the reply does not reveal that the ID exists.
+            if found is None or found['shopper_id'] != shopper:
+                raise UnknownRecommendation()
+            # Always start from the stored belief, never from the last update, so repeating a report cannot
+            # push the belief further and further. The posterior is returned, not saved over the prior.
+            result = report(found['belief'], worn, report_value)
+            if shopper is not None:
+                storage.add_fit_report(conn, shopper, found['product_id'], worn, report_value, recommendation_id)
+                result['stored'] = True
+        result['recommendation_id'] = recommendation_id
         return result
 
     def post_wardrobe(self):
@@ -112,9 +147,9 @@ class Handler(SimpleHTTPRequestHandler):
         # Check every value here, at the edge of the system, before anything touches the database.
         if product_id not in PRODUCT_IDS:
             raise ValueError('Unknown product')
-        if not isinstance(size, int) or size not in WAIST:
+        if not is_whole_number(size) or size not in WAIST:
             raise ValueError('This size is outside the published chart range')
-        if not isinstance(feel, int) or feel not in (-2, 0, 2):
+        if not is_whole_number(feel) or feel not in (-2, 0, 2):
             raise ValueError('Invalid saved fit feedback')
         with closing(storage.connect(self.db_path)) as conn:
             if shopper is None:

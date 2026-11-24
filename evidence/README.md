@@ -31,4 +31,5 @@ Dating every file shows the work happening over time, which is the point of the 
 | 18 Nov 2026 | process/20261118_project_board_created.png | Project board set up with all 10 issues in Todo | Proof of Concept, process |
 | 18 Nov 2026 | process/20261118_board_after_pr11.png | Issues #1 and #2 moved to Done after PR #11 merged | Proof of Concept, process |
 | 19 Nov 2026 | security/20261119_sql_injection_wardrobe.md | Injection payloads against wardrobe storage refused; data intact; tests detect an unsafe rewrite | Privacy and Security, R1 |
+| 23 Nov 2026 | security/20261123_tampered_belief_rejected.md | Forged belief accepted before and refused after; made up, tampered and other shoppers' IDs refused; replayed reports stored once | Privacy and Security, R2 |
 | 24 Nov 2026 | process/20261124_board_midway.png | #3 and #4 in progress with PRs #13 and #14 linked; #1 and #2 done; six issues to do | Proof of Concept, process |
