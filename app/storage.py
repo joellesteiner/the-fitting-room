@@ -8,6 +8,9 @@ What is stored, and nothing more:
 * fit_reports: what a shopper said about a pair after delivery (product, size worn, report),
   at most one per recommendation.
 
+Recommendations are deleted after RECOMMENDATION_KEEP_DAYS. Everything a shopper owns is deleted
+with delete_shopper, and secure_delete makes sure the deleted bytes do not linger in the file.
+
 Every query uses ? placeholders, so values are always sent to SQLite as data and are never
 pasted into the SQL text. That is what stops SQL injection (OWASP A03). The CHECK constraints
 in the schema are a second line of defence if a bad value ever gets past the server's checks.
@@ -15,10 +18,15 @@ in the schema are a second line of defence if a bad value ever gets past the ser
 import json
 import secrets
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 DEFAULT_DB = Path(__file__).parent / 'data' / 'fitting_room.db'
+
+# A recommendation is only needed until the shopper can report how the pair fitted.
+# Delivery plus the 14 day cancellation period under the Consumer Contracts Regulations fits well inside 30 days.
+# A fit report outlives its recommendation: deleting the recommendation only clears the link to it.
+RECOMMENDATION_KEEP_DAYS = 30
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS shoppers (
@@ -72,6 +80,9 @@ def connect(path=DEFAULT_DB):
     conn.row_factory = sqlite3.Row
     # SQLite ignores REFERENCES unless this is on, so ON DELETE CASCADE would silently do nothing.
     conn.execute('PRAGMA foreign_keys = ON')
+    # Without this SQLite only marks deleted rows as free space, and their bytes stay readable in the
+    # file until something overwrites them. With it, deleted content is overwritten with zeros.
+    conn.execute('PRAGMA secure_delete = ON')
     conn.executescript(SCHEMA)
     _upgrade(conn)
     conn.execute(ONE_REPORT_PER_RECOMMENDATION)
@@ -176,15 +187,27 @@ def delete_shopper(conn, shopper_id):
     """Delete a shopper and, through ON DELETE CASCADE, every pair, report and recommendation they own.
 
     Returns how many rows were removed from each table, so the caller can prove it worked.
+    The counts and the delete run in one transaction, so a row added in between cannot be missed.
     """
-    counts = {
-        'owned_pairs': conn.execute('SELECT COUNT(*) FROM owned_pairs WHERE shopper_id = ?', (shopper_id,)).fetchone()[0],
-        'fit_reports': conn.execute('SELECT COUNT(*) FROM fit_reports WHERE shopper_id = ?', (shopper_id,)).fetchone()[0],
-        'recommendations': conn.execute('SELECT COUNT(*) FROM recommendations WHERE shopper_id = ?',
-                                        (shopper_id,)).fetchone()[0],
-    }
+    tables = ('owned_pairs', 'fit_reports', 'recommendations')
     with conn:
+        # The table names come from the fixed tuple above, never from the request, so the f string is safe.
+        counts = {t: conn.execute(f'SELECT COUNT(*) FROM {t} WHERE shopper_id = ?', (shopper_id,)).fetchone()[0]
+                  for t in tables}
         cur = conn.execute('DELETE FROM shoppers WHERE id = ?', (shopper_id,))
     if cur.rowcount == 0:
         return {'shoppers': 0, 'owned_pairs': 0, 'fit_reports': 0, 'recommendations': 0}
     return {'shoppers': cur.rowcount, **counts}
+
+
+def purge_old_recommendations(conn, today=None, keep_days=RECOMMENDATION_KEEP_DAYS):
+    """Delete recommendations older than keep_days and return how many went.
+
+    Applies to every recommendation, with or without a shopper. A fit report that pointed at a
+    deleted recommendation keeps its product, size and fit; ON DELETE SET NULL clears only the link.
+    created_on is an ISO date (YYYY-MM-DD), so comparing the text compares the dates.
+    """
+    cutoff = ((today or date.today()) - timedelta(days=keep_days)).isoformat()
+    with conn:
+        cur = conn.execute('DELETE FROM recommendations WHERE created_on < ?', (cutoff,))
+    return cur.rowcount
