@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
     belief      TEXT NOT NULL,
     created_on  TEXT NOT NULL
 );
+-- Lets the retention purge find old recommendations without reading the whole table.
+CREATE INDEX IF NOT EXISTS recommendations_by_date ON recommendations (created_on);
 CREATE TABLE IF NOT EXISTS fit_reports (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     shopper_id          TEXT NOT NULL REFERENCES shoppers(id) ON DELETE CASCADE,

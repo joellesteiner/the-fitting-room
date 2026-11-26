@@ -126,6 +126,11 @@ class Storage(unittest.TestCase):
         link = self.conn.execute('SELECT recommendation_id FROM fit_reports').fetchone()[0]
         self.assertIsNone(link)
 
+    def test_purge_uses_the_date_index(self):
+        plan = self.conn.execute('EXPLAIN QUERY PLAN DELETE FROM recommendations WHERE created_on < ?',
+                                 ('2026-01-01',)).fetchall()
+        self.assertIn('recommendations_by_date', ' '.join(row[3] for row in plan))
+
     def test_purge_with_nothing_old_removes_nothing(self):
         storage.save_recommendation(self.conn, None, '501', BELIEF)
         self.assertEqual(storage.purge_old_recommendations(self.conn), 0)
