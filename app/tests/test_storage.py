@@ -1,6 +1,8 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
+from datetime import date
 from pathlib import Path
 
 import storage
@@ -77,6 +79,61 @@ class Storage(unittest.TestCase):
     def test_delete_unknown_shopper_removes_nothing(self):
         self.assertEqual(storage.delete_shopper(self.conn, 'nobody'), {'shoppers': 0, 'owned_pairs': 0, 'fit_reports': 0,
                                                                        'recommendations': 0})
+
+    def test_deleted_shopper_id_is_not_left_in_the_database_file(self):
+        # A row deleted without secure_delete stays readable in the file's free space.
+        # Read the raw bytes of a real file to prove the ID and the saved pair are really gone.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'erase.db'
+            with closing(storage.connect(path)) as conn:
+                s = storage.create_shopper(conn)
+                storage.add_owned_pair(conn, s, 'ribcage', 28, 0)
+                storage.save_recommendation(conn, s, 'ribcage', BELIEF)
+                self.assertIn(s.encode(), path.read_bytes())       # the test can see the ID before deletion
+                storage.delete_shopper(conn, s)
+            raw = path.read_bytes()
+            self.assertNotIn(s.encode(), raw)
+            self.assertNotIn(b'ribcage', raw)
+
+    def test_secure_delete_is_switched_on(self):
+        self.assertEqual(self.conn.execute('PRAGMA secure_delete').fetchone()[0], 1)
+
+    # Retention: recommendations are kept for RECOMMENDATION_KEEP_DAYS only
+    def make_recommendation_dated(self, shopper, created_on):
+        rec = storage.save_recommendation(self.conn, shopper, '501', BELIEF)
+        with self.conn:
+            self.conn.execute('UPDATE recommendations SET created_on = ? WHERE id = ?', (created_on, rec))
+        return rec
+
+    def test_purge_removes_only_recommendations_past_the_retention_period(self):
+        today = date(2026, 11, 26)        # 30 days earlier is 27 October
+        old = self.make_recommendation_dated(None, '2026-10-26')
+        edge = self.make_recommendation_dated(None, '2026-10-27')
+        fresh = self.make_recommendation_dated(None, '2026-11-26')
+        self.assertEqual(storage.purge_old_recommendations(self.conn, today=today), 1)
+        self.assertIsNone(storage.get_recommendation(self.conn, old))
+        self.assertIsNotNone(storage.get_recommendation(self.conn, edge))
+        self.assertIsNotNone(storage.get_recommendation(self.conn, fresh))
+
+    def test_purge_also_covers_shoppers_recommendations_but_keeps_their_fit_reports(self):
+        s = storage.create_shopper(self.conn)
+        rec = self.make_recommendation_dated(s, '2026-01-01')
+        storage.add_fit_report(self.conn, s, '501', 29, 'tight', rec)
+        self.assertEqual(storage.purge_old_recommendations(self.conn, today=date(2026, 11, 26)), 1)
+        self.assertIsNone(storage.get_recommendation(self.conn, rec))
+        reports = storage.list_fit_reports(self.conn, s)
+        self.assertEqual([(r['worn_size'], r['report']) for r in reports], [(29, 'tight')])
+        link = self.conn.execute('SELECT recommendation_id FROM fit_reports').fetchone()[0]
+        self.assertIsNone(link)
+
+    def test_purge_uses_the_date_index(self):
+        plan = self.conn.execute('EXPLAIN QUERY PLAN DELETE FROM recommendations WHERE created_on < ?',
+                                 ('2026-01-01',)).fetchall()
+        self.assertIn('recommendations_by_date', ' '.join(row[3] for row in plan))
+
+    def test_purge_with_nothing_old_removes_nothing(self):
+        storage.save_recommendation(self.conn, None, '501', BELIEF)
+        self.assertEqual(storage.purge_old_recommendations(self.conn), 0)
 
     # Recommendations: the server keeps its own copy of the belief
     def test_recommendation_round_trip(self):

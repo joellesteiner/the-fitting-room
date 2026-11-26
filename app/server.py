@@ -16,8 +16,13 @@ SHOPPER_HEADER = 'X-Shopper-Id'
 # IDs made by storage.create_shopper and storage.save_recommendation are URL safe base64.
 # Anything else is refused before it reaches the database.
 ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
-# The only fields a fit report may carry. The belief is deliberately not one of them:
-# the server applies the report to its own stored copy, so the browser cannot choose the probabilities.
+# Data minimisation: each endpoint lists the only fields it accepts, and a request carrying anything
+# else is refused with 400. So the server cannot quietly receive height, weight, a date of birth or any
+# other body or identity data, even if a future front end, or someone calling the API directly, sends it.
+RECOMMEND_FIELDS = {'owned_size', 'feel', 'intent', 'query'}
+WARDROBE_FIELDS = {'product_id', 'size', 'feel'}
+# The belief is deliberately not a report field: the server applies the report to its own stored copy,
+# so the browser cannot choose the probabilities.
 REPORT_FIELDS = {'recommendation_id', 'worn', 'report'}
 
 
@@ -73,13 +78,18 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:
             return self.reply(400, {'error': str(e)})
 
-    def read_json(self):
+    def read_json(self, allowed):
+        """Read the JSON body and refuse it if it has any field outside the allowed set."""
         n = int(self.headers.get('Content-Length', '0'))
         if n > 10000:
             raise ValueError('Request too large')
         data = json.loads(self.rfile.read(n))
         if not isinstance(data, dict):
             raise ValueError('Request body must be a JSON object')
+        # Refuse rather than ignore, so a client that sends extra data finds out straight away.
+        unexpected = set(data) - allowed
+        if unexpected:
+            raise ValueError('Unexpected field: ' + ', '.join(sorted(unexpected)))
         return data
 
     def do_GET(self):
@@ -91,6 +101,11 @@ class Handler(SimpleHTTPRequestHandler):
             return self.handle_api(self.get_wardrobe)
         return super().do_GET()
 
+    def do_DELETE(self):
+        if self.path != '/api/shopper':
+            return self.reply(404, {'error': 'Unknown endpoint'})
+        return self.handle_api(self.delete_shopper)
+
     def do_POST(self):
         actions = {'/api/recommend': self.post_recommend, '/api/report': self.post_report,
                    '/api/wardrobe': self.post_wardrobe}
@@ -101,22 +116,22 @@ class Handler(SimpleHTTPRequestHandler):
     # ---- API actions ----
 
     def post_recommend(self):
-        data = self.read_json()
+        data = self.read_json(RECOMMEND_FIELDS)
         shopper = self.shopper_id(required=False)
         result = recommend(data.get('owned_size'), data.get('feel'), data.get('intent'), data.get('query'))
         # Keep the server's own copy of the belief. The browser gets an ID to refer to it, and a copy to draw.
         with closing(storage.connect(self.db_path)) as conn:
             if shopper is not None and not storage.shopper_exists(conn, shopper):
                 raise UnknownShopper()
+            # Apply the retention period here, where new recommendations are made, so it keeps running
+            # however long the server stays up. It is one indexed date comparison, so it costs little.
+            storage.purge_old_recommendations(conn)
             result['recommendation_id'] = storage.save_recommendation(conn, shopper, result['product_id'],
                                                                       result['belief'])
         return result
 
     def post_report(self):
-        data = self.read_json()
-        unexpected = set(data) - REPORT_FIELDS
-        if unexpected:
-            raise ValueError('Unexpected field: ' + ', '.join(sorted(unexpected)))
+        data = self.read_json(REPORT_FIELDS)
         recommendation_id, worn, report_value = data.get('recommendation_id'), data.get('worn'), data.get('report')
         if not isinstance(recommendation_id, str) or not ID_PATTERN.fullmatch(recommendation_id):
             raise ValueError('Invalid recommendation ID')
@@ -141,7 +156,7 @@ class Handler(SimpleHTTPRequestHandler):
         return result
 
     def post_wardrobe(self):
-        data = self.read_json()
+        data = self.read_json(WARDROBE_FIELDS)
         shopper = self.shopper_id(required=False)
         product_id, size, feel = data.get('product_id'), data.get('size'), data.get('feel')
         # Check every value here, at the edge of the system, before anything touches the database.
@@ -166,6 +181,15 @@ class Handler(SimpleHTTPRequestHandler):
                 raise UnknownShopper()
             return {'shopper_id': shopper, 'pairs': storage.list_wardrobe(conn, shopper),
                     'fit_reports': storage.list_fit_reports(conn, shopper)}
+
+    def delete_shopper(self):
+        """Right to erasure: delete everything stored under this shopper ID and say what went."""
+        shopper = self.shopper_id(required=True)
+        with closing(storage.connect(self.db_path)) as conn:
+            removed = storage.delete_shopper(conn, shopper)
+        if removed['shoppers'] == 0:
+            raise UnknownShopper()
+        return {'deleted': removed}
 
 
 if __name__ == '__main__':

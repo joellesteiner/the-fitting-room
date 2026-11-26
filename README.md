@@ -55,6 +55,15 @@ Then open http://127.0.0.1:8799. On Windows you can double click `app/START_WIND
 
 To use a different database file, set `FITTING_ROOM_DB` before starting the server. To start afresh, delete `app/data/fitting_room.db`.
 
+## Your data
+
+The prototype never asks for a name, email, height, weight or any other body measurement, and the server refuses any request that tries to send one (400, `Unexpected field`). What it does keep is listed at the top of `app/storage.py`.
+
+* **Delete my data:** the button on the first step, or `DELETE /api/shopper` with the `X-Shopper-Id` header, removes the shopper and every saved pair, fit report and recommendation linked to them. SQLite `secure_delete` overwrites the deleted rows in the file.
+* **Retention:** recommendations are deleted after 30 days. A fit report outlives its recommendation and keeps only product, size worn and fit.
+
+See [ADR 0004](docs/adr/0004-delete-my-data-and-retention.md).
+
 ## Research data
 
 The ModCloth dataset (Misra, Wan and McAuley, 2018) is not stored in this repository. Download `modcloth_final_data.json` from the authors' release and pass its path to the script:

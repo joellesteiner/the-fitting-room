@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from contextlib import closing
 from unittest import mock
 import urllib.error
 import urllib.request
@@ -168,6 +169,87 @@ class Api(unittest.TestCase):
         status, _ = self.call('POST', '/api/recommend', {'owned_size': 28, 'feel': -2, 'intent': 'regular',
                                                          'query': RIGID}, 'A' * 22)
         self.assertEqual(status, 404)
+
+    # Delete my data (issue #5)
+    def test_delete_removes_everything_the_shopper_stored(self):
+        _, saved = self.save_pair()
+        shopper = saved['shopper_id']
+        self.save_pair(shopper, size=30, feel=0)
+        rec = self.get_recommendation(shopper)
+        self.send_report(rec['recommendation_id'], shopper=shopper)
+        status, body = self.call('DELETE', '/api/shopper', shopper=shopper)
+        self.assertEqual((status, body), (200, {'deleted': {'shoppers': 1, 'owned_pairs': 2, 'fit_reports': 1,
+                                                           'recommendations': 1}}))
+        # Check the database itself, not only the API, so nothing is left behind under another table.
+        with closing(sqlite3.connect(str(Handler.db_path))) as conn:
+            for table, column in (('shoppers', 'id'), ('owned_pairs', 'shopper_id'),
+                                  ('fit_reports', 'shopper_id'), ('recommendations', 'shopper_id')):
+                count = conn.execute(f'SELECT COUNT(*) FROM {table} WHERE {column} = ?', (shopper,)).fetchone()[0]
+                self.assertEqual(count, 0, table)
+            self.assertIsNone(conn.execute('SELECT 1 FROM recommendations WHERE id = ?',
+                                           (rec['recommendation_id'],)).fetchone())
+
+    def test_after_deletion_the_id_no_longer_works(self):
+        _, saved = self.save_pair()
+        shopper = saved['shopper_id']
+        rec = self.get_recommendation(shopper)
+        self.call('DELETE', '/api/shopper', shopper=shopper)
+        self.assertEqual(self.call('GET', '/api/wardrobe', shopper=shopper)[0], 404)
+        self.assertEqual(self.save_pair(shopper)[0], 404)                       # cannot be brought back to life
+        self.assertEqual(self.send_report(rec['recommendation_id'], shopper=shopper)[0], 404)
+        self.assertEqual(self.call('DELETE', '/api/shopper', shopper=shopper)[0], 404)   # second delete
+
+    def test_delete_leaves_other_shoppers_alone(self):
+        _, alice = self.save_pair()
+        _, bob = self.save_pair(size=30)
+        self.call('DELETE', '/api/shopper', shopper=alice['shopper_id'])
+        status, wardrobe = self.call('GET', '/api/wardrobe', shopper=bob['shopper_id'])
+        self.assertEqual((status, [p['size'] for p in wardrobe['pairs']]), (200, [30]))
+
+    def test_delete_needs_a_valid_shopper_id(self):
+        self.assertEqual(self.call('DELETE', '/api/shopper'), (400, {'error': 'Missing shopper ID'}))
+        self.assertEqual(self.call('DELETE', '/api/shopper', shopper="x' OR '1'='1"),
+                         (400, {'error': 'Invalid shopper ID'}))
+        self.assertEqual(self.call('DELETE', '/api/shopper', shopper='A' * 22),
+                         (404, {'error': 'Unknown shopper ID'}))
+
+    def test_delete_on_any_other_path_is_refused(self):
+        _, saved = self.save_pair()
+        for path in ('/api/wardrobe', '/index.html', '/api/shopper/'):
+            self.assertEqual(self.call('DELETE', path, shopper=saved['shopper_id'])[0], 404, path)
+        self.assertEqual(self.call('GET', '/api/wardrobe', shopper=saved['shopper_id'])[0], 200)
+
+    # Retention (issue #5)
+    def test_making_a_recommendation_purges_old_ones(self):
+        old = self.get_recommendation()['recommendation_id']
+        with closing(sqlite3.connect(str(Handler.db_path))) as conn, conn:     # second 'conn' commits
+            conn.execute("UPDATE recommendations SET created_on = '2000-01-01' WHERE id = ?", (old,))
+        self.get_recommendation()
+        self.assertEqual(self.send_report(old), (404, {'error': 'Unknown recommendation'}))
+
+    # Data minimisation (issue #5): no body or identity data can be sent, on any endpoint
+    def test_body_data_is_refused_when_saving_a_pair(self):
+        for field, value in (('height_cm', 170), ('weight_kg', 60), ('waist_cm', 74), ('email', 'a@b.com')):
+            status, body = self.call('POST', '/api/wardrobe', {'product_id': '501', 'size': 28, 'feel': 0, field: value})
+            self.assertEqual((status, body), (400, {'error': 'Unexpected field: ' + field}), field)
+
+    def test_body_data_is_refused_when_asking_for_a_size(self):
+        status, body = self.call('POST', '/api/recommend', {'owned_size': 28, 'feel': 0, 'intent': 'regular',
+                                                            'query': RIGID, 'date_of_birth': '1999-01-01',
+                                                            'height_cm': 170})
+        self.assertEqual((status, body), (400, {'error': 'Unexpected field: date_of_birth, height_cm'}))
+
+    def test_refused_request_stores_nothing(self):
+        _, saved = self.save_pair()
+        self.call('POST', '/api/wardrobe', {'product_id': '501', 'size': 30, 'feel': 0, 'weight_kg': 60},
+                  saved['shopper_id'])
+        _, wardrobe = self.call('GET', '/api/wardrobe', shopper=saved['shopper_id'])
+        self.assertEqual([p['size'] for p in wardrobe['pairs']], [28])
+
+    def test_the_fields_the_front_end_sends_are_still_accepted(self):
+        # Guard against the allowed lists being too strict: these are exactly what index.html sends.
+        self.assertEqual(self.save_pair()[0], 200)
+        self.get_recommendation()
 
     # Bad and hostile input
     def test_injection_in_shopper_header_is_refused(self):
