@@ -169,6 +169,30 @@ class Api(unittest.TestCase):
                                                          'query': RIGID}, 'A' * 22)
         self.assertEqual(status, 404)
 
+    # Data minimisation (issue #5): no body or identity data can be sent, on any endpoint
+    def test_body_data_is_refused_when_saving_a_pair(self):
+        for field, value in (('height_cm', 170), ('weight_kg', 60), ('waist_cm', 74), ('email', 'a@b.com')):
+            status, body = self.call('POST', '/api/wardrobe', {'product_id': '501', 'size': 28, 'feel': 0, field: value})
+            self.assertEqual((status, body), (400, {'error': 'Unexpected field: ' + field}), field)
+
+    def test_body_data_is_refused_when_asking_for_a_size(self):
+        status, body = self.call('POST', '/api/recommend', {'owned_size': 28, 'feel': 0, 'intent': 'regular',
+                                                            'query': RIGID, 'date_of_birth': '1999-01-01',
+                                                            'height_cm': 170})
+        self.assertEqual((status, body), (400, {'error': 'Unexpected field: date_of_birth, height_cm'}))
+
+    def test_refused_request_stores_nothing(self):
+        _, saved = self.save_pair()
+        self.call('POST', '/api/wardrobe', {'product_id': '501', 'size': 30, 'feel': 0, 'weight_kg': 60},
+                  saved['shopper_id'])
+        _, wardrobe = self.call('GET', '/api/wardrobe', shopper=saved['shopper_id'])
+        self.assertEqual([p['size'] for p in wardrobe['pairs']], [28])
+
+    def test_the_fields_the_front_end_sends_are_still_accepted(self):
+        # Guard against the allowed lists being too strict: these are exactly what index.html sends.
+        self.assertEqual(self.save_pair()[0], 200)
+        self.get_recommendation()
+
     # Bad and hostile input
     def test_injection_in_shopper_header_is_refused(self):
         self.save_pair()
