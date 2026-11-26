@@ -81,7 +81,8 @@ h1,h2{font-family:Georgia,serif;font-weight:400;letter-spacing:-1.4px}h1{font-si
 <div class="field"><label>How do they feel?</label><div class="chips" id="feel"><button class="chip" data-v="-2">A little tight</button><button class="chip selected" data-v="0">Just right</button><button class="chip" data-v="2">A little loose</button></div></div>
 <button class="primary" id="save">Save to my wardrobe <span>→</span></button>
 <div class="error" id="saveError" role="alert" hidden></div>
-<p class="micro" id="wardrobeNote">Saved under a random ID kept in this browser. No name, email or body data.</p>
+<p class="micro" id="wardrobeNote" aria-live="polite">Saved under a random ID kept in this browser. No name, email or body data.</p>
+<button class="secondary" id="forget" type="button" hidden>Delete my data</button>
 <div class="micro">Size logic uses <a href="https://www.levi.com/GB/en_GB/info/sizechart" target="_blank" rel="noopener">Levi's official UK size guide</a>.</div></section>
 
 <section class="panel" id="page2" hidden><div class="kicker">STEP 02 / DESCRIBE WHAT YOU WANT NEXT</div><h2>What are you shopping for?</h2><p class="hint">Describe it in your own words. Our language model matches it to a product we hold fit data for.</p>
@@ -142,6 +143,7 @@ chips('reportChips',v=>{reportVal=v;sendReport()});
 const ID_KEY='fittingRoomShopper';
 function getShopper(){try{return localStorage.getItem(ID_KEY)}catch(e){return null}}
 function setShopper(v){try{v?localStorage.setItem(ID_KEY,v):localStorage.removeItem(ID_KEY)}catch(e){}}
+function showForget(){el('forget').hidden=!getShopper()}
 function shopperHeaders(){const h={'Content-Type':'application/json'};const id=getShopper();if(id)h['X-Shopper-Id']=id;return h}
 async function postWardrobe(pair){return fetch('/api/wardrobe',{method:'POST',headers:shopperHeaders(),body:JSON.stringify(pair)})}
 el('save').onclick=async()=>{el('saveError').hidden=true;
@@ -149,18 +151,27 @@ el('save').onclick=async()=>{el('saveError').hidden=true;
  try{let r=await postWardrobe(pair);
   if(r.status===404){setShopper(null);r=await postWardrobe(pair)} // the saved ID no longer exists on the server
   const d=await r.json();if(!r.ok)throw Error(d.error||'Could not save');
-  setShopper(d.shopper_id);el('wardrobeNote').textContent=`Your wardrobe holds ${d.pairs.length} saved pair${d.pairs.length===1?'':'s'}, under a random ID kept in this browser.`;
+  setShopper(d.shopper_id);showForget();el('wardrobeNote').textContent=`Your wardrobe holds ${d.pairs.length} saved pair${d.pairs.length===1?'':'s'}, under a random ID kept in this browser.`;
   saved={size:pair.size,feel};last=null;navigate(2)}
  catch(e){el('saveError').textContent='Could not save your pair: '+e.message;el('saveError').hidden=false}};
 // On return visits, start from the most recently saved pair.
 (async()=>{if(!getShopper())return;
  try{const r=await fetch('/api/wardrobe',{headers:shopperHeaders()});
   if(r.status===404){setShopper(null);return}
-  const d=await r.json();if(!r.ok||!d.pairs.length)return;
+  const d=await r.json();if(!r.ok)return;showForget();if(!d.pairs.length)return;
   const p=d.pairs[d.pairs.length-1];el('ownedSize').value=String(p.size);feel=p.feel;
   document.querySelectorAll('#feel button').forEach(b=>b.classList.toggle('selected',Number(b.dataset.v)===p.feel));
   el('wardrobeNote').textContent=`Welcome back: loaded your saved W${p.size}. Your wardrobe holds ${d.pairs.length} saved pair${d.pairs.length===1?'':'s'}.`}
  catch(e){}})();
+// Right to erasure: remove everything stored under this browser's ID, on the server and here.
+const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+el('forget').onclick=async()=>{
+ if(!confirm('Delete your saved pairs, fit reports and recommendations from our server? This cannot be undone.'))return;
+ try{const r=await fetch('/api/shopper',{method:'DELETE',headers:shopperHeaders()});const d=await r.json();
+  if(!r.ok&&r.status!==404)throw Error(d.error||'Could not delete');
+  setShopper(null);showForget();saved=null;last=null;
+  const k=d.deleted;el('wardrobeNote').textContent=k?`Deleted ${plural(k.owned_pairs,'saved pair')}, ${plural(k.fit_reports,'fit report')} and ${plural(k.recommendations,'recommendation')}. Nothing linked to you is left on our server.`:'There was nothing stored for this browser. Nothing linked to you is on our server.'}
+ catch(e){el('saveError').textContent='Could not delete your data: '+e.message;el('saveError').hidden=false}};
 el('back').onclick=()=>navigate(1);
 const pct=x=>Math.round(x*100)+'%';
 function drawChart(d,prior){
